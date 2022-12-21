@@ -2,7 +2,8 @@ require('dotenv').config();
 const express = require("express");
 const ejs = require("ejs");
 const mongoose = require('mongoose');
-const crypto = require('crypto');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 const app = express();
 
@@ -29,14 +30,15 @@ app.route('/login')
     .post((req,res)=>{
         const username = req.body.username;
         const password = req.body.password;
-        const hashPassword = crypto.createHash('sha256',password).digest('base64');
 
         User.findOne({email: username},(err,foundUser)=>{
             if(!err){
                 if(foundUser){
-                    if(foundUser.password === hashPassword){
-                        res.render('secrets');
-                    }
+                    bcrypt.compare(password, foundUser.password, function(err, result) {
+                        if(result == true){
+                            res.render('secrets');
+                        }
+                    });
                 }
             }else{
                 res.send(err);
@@ -56,19 +58,22 @@ app.route('/register')
 
     .post((req,res)=>{
         const password = req.body.password;
-        const hashPassword = crypto.createHash('sha256',password).digest('base64');
 
-        const newUser = new User({
-            email: req.body.username,
-            password: hashPassword
-        })
-        newUser.save((err)=>{
-            if(!err){
-                res.render('secrets');
-            }else{
-                res.send(err);
-            }
+        bcrypt.hash(password, saltRounds, function(err, hash) {
+            // Store hash in your password DB.
+            const newUser = new User({
+                email: req.body.username,
+                password: hash
+            })
+            newUser.save((err)=>{
+                if(!err){
+                    res.render('secrets');
+                }else{
+                    res.send(err);
+                }
+            });
         });
+   
     })
 
 app.listen(3000,()=>{
